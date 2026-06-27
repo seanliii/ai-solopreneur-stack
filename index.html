@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 员工名册 — 一人公司のAI团队</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background: linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%); min-height:100vh; color:#e2e8f0; }
+.container { max-width:1280px; margin:0 auto; padding:24px 16px; }
+
+header { text-align:center; padding:48px 0 32px; }
+header h1 { font-size:2.5rem; font-weight:800; background: linear-gradient(90deg,#38bdf8,#818cf8,#c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:8px; letter-spacing:-0.02em; }
+header .subtitle { font-size:1.1rem; color:#94a3b8; }
+header .tagline { font-size:0.95rem; color:#64748b; margin-top:8px; font-style:italic; }
+
+.stats-bar { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:28px; }
+.stat-card { background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.1); border-radius:12px; padding:16px; text-align:center; backdrop-filter:blur(10px); transition:transform 0.2s; }
+.stat-card:hover { transform:translateY(-2px); border-color:rgba(56,189,248,0.3); }
+.stat-card .num { font-size:1.8rem; font-weight:700; color:#38bdf8; }
+.stat-card .label { font-size:0.8rem; color:#64748b; margin-top:4px; }
+
+.controls { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px; align-items:center; }
+.search-box { flex:1; min-width:200px; position:relative; }
+.search-box input { width:100%; padding:12px 16px 12px 44px; border-radius:10px; border:1px solid rgba(148,163,184,0.15); background:rgba(15,23,42,0.6); color:#e2e8f0; font-size:0.95rem; outline:none; transition:border-color 0.2s; }
+.search-box input:focus { border-color:#38bdf8; }
+.search-box::before { content:"🔍"; position:absolute; left:16px; top:50%; transform:translateY(-50%); font-size:0.9rem; }
+
+.filter-group { display:flex; flex-wrap:wrap; gap:8px; }
+.filter-btn { padding:8px 16px; border-radius:20px; border:1px solid rgba(148,163,184,0.15); background:rgba(15,23,42,0.5); color:#94a3b8; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+.filter-btn.active { background:linear-gradient(135deg,#38bdf8,#818cf8); color:#fff; border-color:transparent; font-weight:600; }
+.filter-btn:hover:not(.active) { border-color:#38bdf8; color:#38bdf8; }
+
+.view-toggle { display:flex; gap:4px; margin-left:auto; }
+.view-toggle button { padding:8px 14px; border-radius:8px; border:1px solid rgba(148,163,184,0.15); background:rgba(15,23,42,0.5); color:#94a3b8; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+.view-toggle button.active { background:#38bdf8; color:#0f172a; border-color:#38bdf8; font-weight:600; }
+
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+.employee-card { background:rgba(30,41,59,0.6); border:1px solid rgba(148,163,184,0.08); border-radius:14px; padding:20px; cursor:pointer; transition:all 0.25s; position:relative; overflow:hidden; }
+.employee-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#38bdf8,#818cf8,#c084fc); opacity:0; transition:opacity 0.25s; }
+.employee-card:hover { transform:translateY(-4px); border-color:rgba(56,189,248,0.3); box-shadow:0 12px 32px rgba(0,0,0,0.3); }
+.employee-card:hover::before { opacity:1; }
+.employee-card .dept-badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:0.72rem; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.03em; }
+.employee-card .name { font-size:1.15rem; font-weight:700; color:#f1f5f9; margin-bottom:4px; }
+.employee-card .role { font-size:0.88rem; color:#94a3b8; margin-bottom:10px; }
+.employee-card .skills { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.employee-card .skill-tag { padding:3px 10px; border-radius:6px; font-size:0.75rem; background:rgba(56,189,248,0.1); color:#38bdf8; border:1px solid rgba(56,189,248,0.15); }
+.employee-card .meta { display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#64748b; margin-top:12px; padding-top:12px; border-top:1px solid rgba(148,163,184,0.08); }
+.employee-card .cost { color:#4ade80; font-weight:600; }
+.employee-card .rating { color:#fbbf24; }
+
+.table-view { display:none; }
+.table-view table { width:100%; border-collapse:collapse; background:rgba(30,41,59,0.4); border-radius:12px; overflow:hidden; }
+.table-view th { background:rgba(15,23,42,0.6); padding:14px 16px; text-align:left; font-size:0.8rem; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid rgba(148,163,184,0.1); }
+.table-view td { padding:14px 16px; border-bottom:1px solid rgba(148,163,184,0.06); font-size:0.9rem; color:#e2e8f0; }
+.table-view tr:hover td { background:rgba(56,189,248,0.05); }
+.table-view .td-dept { font-size:0.75rem; font-weight:600; padding:3px 10px; border-radius:8px; display:inline-block; }
+.table-view .td-cost { color:#4ade80; font-weight:600; }
+.table-view .td-rating { color:#fbbf24; }
+
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); }
+.modal-overlay.active { display:flex; }
+.modal { background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%); border:1px solid rgba(148,163,184,0.15); border-radius:16px; max-width:600px; width:100%; max-height:85vh; overflow-y:auto; position:relative; box-shadow:0 24px 64px rgba(0,0,0,0.4); }
+.modal .close { position:absolute; top:16px; right:20px; font-size:1.5rem; color:#64748b; cursor:pointer; background:none; border:none; transition:color 0.2s; }
+.modal .close:hover { color:#e2e8f0; }
+.modal-header { padding:28px 28px 0; }
+.modal-header .dept-badge-modal { display:inline-block; padding:4px 12px; border-radius:10px; font-size:0.75rem; font-weight:600; margin-bottom:12px; text-transform:uppercase; }
+.modal-header h2 { font-size:1.5rem; font-weight:700; color:#f1f5f9; margin-bottom:4px; }
+.modal-header .role { color:#94a3b8; font-size:1rem; }
+.modal-body { padding:20px 28px 28px; }
+.modal-section { margin-bottom:20px; }
+.modal-section h3 { font-size:0.85rem; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px; }
+.modal-section p { color:#cbd5e1; font-size:0.92rem; line-height:1.7; }
+.modal-section .skills-modal { display:flex; flex-wrap:wrap; gap:8px; }
+.modal-section .skill-tag-modal { padding:5px 12px; border-radius:8px; font-size:0.82rem; background:rgba(56,189,248,0.1); color:#38bdf8; border:1px solid rgba(56,189,248,0.15); }
+.modal-section .tasks-list { list-style:none; }
+.modal-section .tasks-list li { padding:8px 0; border-bottom:1px solid rgba(148,163,184,0.06); color:#cbd5e1; font-size:0.9rem; display:flex; align-items:flex-start; gap:8px; }
+.modal-section .tasks-list li::before { content:"✓"; color:#4ade80; font-weight:700; flex-shrink:0; }
+.modal-section .pricing-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(148,163,184,0.06); color:#cbd5e1; font-size:0.9rem; }
+.modal-section .pricing-row .price { color:#4ade80; font-weight:600; }
+.modal-footer { padding:0 28px 28px; display:flex; gap:12px; }
+.modal-footer a { flex:1; text-align:center; padding:12px 20px; border-radius:10px; text-decoration:none; font-weight:600; font-size:0.9rem; transition:all 0.2s; }
+.modal-footer .btn-primary { background:linear-gradient(135deg,#38bdf8,#818cf8); color:#0f172a; }
+.modal-footer .btn-primary:hover { opacity:0.9; transform:translateY(-1px); }
+.modal-footer .btn-secondary { background:rgba(148,163,184,0.1); color:#94a3b8; border:1px solid rgba(148,163,184,0.15); }
+.modal-footer .btn-secondary:hover { border-color:#38bdf8; color:#38bdf8; }
+
+.no-results { text-align:center; padding:60px 20px; color:#64748b; }
+.no-results .icon { font-size:3rem; margin-bottom:12px; opacity:0.5; }
+.no-results p { font-size:1rem; }
+
+footer { text-align:center; padding:40px 0 24px; color:#475569; font-size:0.85rem; }
+footer a { color:#64748b; text-decoration:none; }
+footer a:hover { color:#38bdf8; }
+
+@media (max-width:640px) {
+  header h1 { font-size:1.8rem; }
+  .grid { grid-template-columns:1fr; }
+  .controls { flex-direction:column; align-items:stretch; }
+  .view-toggle { margin-left:0; justify-content:center; }
+  .modal { max-height:90vh; }
+}
+
+/* Department colors */
+.dept-content { background:rgba(56,189,248,0.15); color:#38bdf8; }
+.dept-design { background:rgba(168,85,247,0.15); color:#c084fc; }
+.dept-code { background:rgba(34,197,94,0.15); color:#4ade80; }
+.dept-marketing { background:rgba(249,115,22,0.15); color:#fb923c; }
+.dept-support { background:rgba(236,72,153,0.15); color:#f472b6; }
+.dept-research { background:rgba(99,102,241,0.15); color:#818cf8; }
+.dept-video { background:rgba(239,68,68,0.15); color:#f87171; }
+.dept-legal { background:rgba(234,179,8,0.15); color:#facc15; }
+.dept-finance { background:rgba(20,184,166,0.15); color:#2dd4bf; }
+.dept-productivity { background:rgba(107,114,128,0.15); color:#9ca3af; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>🤖 AI 员工名册</h1>
+  <p class="subtitle">一人公司のAI团队 — 24小时在线，0元底薪</p>
+  <p class="tagline">"我的50个AI员工24小时不停工" — 从互联网大厂到一人公司</p>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">AI员工总数</div></div>
+  <div class="stat-card"><div class="num" id="statDepts">0</div><div class="label">部门数</div></div>
+  <div class="stat-card"><div class="num" id="statFree">0</div><div class="label">免费可用</div></div>
+  <div class="stat-card"><div class="num" id="statAvg">0</div><div class="label">平均月费</div></div>
+  <div class="stat-card"><div class="num" id="statTop">0</div><div class="label">评分4.8+</div></div>
+</div>
+
+<div class="controls">
+  <div class="search-box"><input type="text" id="searchInput" placeholder="搜索AI员工（名称、技能、角色）..."></div>
+  <div class="view-toggle">
+    <button class="active" data-view="cards" onclick="switchView('cards')">📇 卡片</button>
+    <button data-view="table" onclick="switchView('table')">📊 表格</button>
+  </div>
+</div>
+
+<div class="filter-group" id="filterGroup">
+  <button class="filter-btn active" data-dept="all" onclick="filterDept('all')">全部</button>
+</div>
+
+<div class="grid" id="grid"></div>
+<div class="table-view" id="tableView"></div>
+<div class="no-results" id="noResults" style="display:none">
+  <div class="icon">🔍</div>
+  <p>未找到匹配的AI员工，试试其他关键词</p>
+</div>
+
+<footer>
+  <p>AI Solopreneur Stack ·  curated for 一人公司创业者 · <a href="https://github.com/seanliii" target="_blank">@seanliii</a></p>
+  <p style="margin-top:4px">数据更新于 2026-06-27 · 纯前端零依赖</p>
+</footer>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="close" onclick="closeModal()">&times;</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const employees = [
+  {
+    id:1, name:"ChatGPT", role:"首席内容官 & 创意总监", dept:"content",
+    skills:["文案撰写","头脑风暴","翻译","邮件起草","报告生成","代码解释"],
+    cost:"免费 / $20月", rating:4.9, freeTier:true,
+    desc:"OpenAI的旗舰对话AI，全球使用最广泛的AI助手。从撰写营销文案到解释复杂代码，从头脑风暴到翻译多国语言，ChatGPT是一人公司的全能大脑。",
+    tasks:["撰写小红书/公众号推文","起草商业邮件和提案","翻译产品文档为多语言","头脑风暴产品名和 slogan","生成周报/月报/年终总结","解释技术概念给非技术人员"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"GPT-4o-mini，基础对话"},{tier:"Plus", price:"$20/月", desc:"GPT-4o，优先访问，DALL-E"},{tier:"Pro", price:"$200/月", desc:"o1 Pro，深度推理"}],
+    link:"https://chatgpt.com"
+  },
+  {
+    id:2, name:"Claude", role:"高级写作顾问 & 长文专家", dept:"content",
+    skills:["长文写作","学术论文","技术文档","分析报告","创意写作","合同审查"],
+    cost:"免费 / $20月", rating:4.8, freeTier:true,
+    desc:"Anthropic推出的Claude以超长上下文（200K tokens）和高质量写作著称。擅长处理复杂文档、撰写深度报告、分析长文本。是一人公司处理'重脑力'工作的首选。",
+    tasks:["撰写万字长文/白皮书","分析50页PDF并提取要点","起草投资协议/合同","撰写技术文档和API说明","进行SWOT分析","创作小说/剧本等创意内容"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"Claude 3.5 Sonnet，基础对话"},{tier:"Pro", price:"$20/月", desc:"Claude 3 Opus，更高限额"},{tier:"Team", price:"$30/人/月", desc:"团队协作，共享工作区"}],
+    link:"https://claude.ai"
+  },
+  {
+    id:3, name:"Midjourney", role:"视觉设计师 & 品牌创意", dept:"design",
+    skills:["图像生成","品牌设计","插画创作","概念艺术","海报设计","Logo设计"],
+    cost:"$10月起", rating:4.7, freeTier:false,
+    desc:"AI图像生成领域的美学标杆。Midjourney生成的图像质量极高，艺术风格独特。一人公司无需聘请设计师，即可产出专业级视觉内容。",
+    tasks:["生成产品宣传海报","设计品牌视觉概念图","创作社交媒体配图","绘制产品概念插画","设计网站Hero Banner","生成PPT封面图"],
+    pricing:[{tier:"Basic", price:"$10/月", desc:"3.3小时GPU/月"},{tier:"Standard", price:"$30/月", desc:"15小时GPU/月"},{tier:"Pro", price:"$60/月", desc:"30小时GPU/月，隐身模式"}],
+    link:"https://midjourney.com"
+  },
+  {
+    id:4, name:"Cursor", role:"首席工程师 & 全栈开发", dept:"code",
+    skills:["代码生成","代码审查","Bug修复","自动补全","代码重构","多文件编辑"],
+    cost:"免费 / $20月", rating:4.9, freeTier:true,
+    desc:"基于VS Code的AI编程编辑器，被称为'AI-native IDE'。Cursor能理解整个代码库，支持多文件编辑、自动生成代码、智能补全。一人公司技术负责人的最佳拍档。",
+    tasks:["从零构建完整Web应用","自动修复代码Bug","重构遗留代码","生成单元测试","解释复杂代码逻辑","将代码迁移至新框架"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"2000补全/月，50慢请求"},{tier:"Pro", price:"$20/月", desc:"无限补全，500快请求"},{tier:"Business", price:"$40/人/月", desc:"团队协作，高级安全"}],
+    link:"https://cursor.com"
+  },
+  {
+    id:5, name:"Perplexity", role:"研究员 & 情报分析师", dept:"research",
+    skills:["实时搜索","深度研究","信息整合","来源追溯","竞品分析","行业报告"],
+    cost:"免费 / $20月", rating:4.8, freeTier:true,
+    desc:"AI搜索引擎，每次回答都附带来源链接。Perplexity能实时搜索互联网，整合多源信息，生成带引用的研究报告。一人公司做市场调研和竞品分析的效率神器。",
+    tasks:["竞品功能对比分析","行业趋势研究报告","客户背景调查","技术方案调研","政策法规查询","学术论文速览"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"基础搜索，有限Copilot"},{tier:"Pro", price:"$20/月", desc:"300+ Pro搜索，高级模型"},{tier:"Enterprise", price:"定制", desc:"团队协作，SSO"}],
+    link:"https://perplexity.ai"
+  },
+  {
+    id:6, name:"Canva AI", role:"平面设计师 & 品牌专员", dept:"design",
+    skills:["海报设计","社交媒体图","PPT制作","Logo设计","视频剪辑","品牌套件"],
+    cost:"免费 / $15月", rating:4.6, freeTier:true,
+    desc:"全球最受欢迎的设计工具，AI功能包括Magic Design、Text to Image、Magic Edit等。一人公司无需设计基础，即可产出专业级营销物料。",
+    tasks:["设计Instagram/Twitter帖子","制作 investor pitch deck","生成产品展示视频","设计名片/宣传册","创建品牌色彩方案","批量调整图片尺寸"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"基础模板，5GB存储"},{tier:"Pro", price:"$15/月", desc:"全部模板，100GB，品牌套件"},{tier:"Teams", price:"$10/人/月", desc:"团队协作，品牌管理"}],
+    link:"https://canva.com"
+  },
+  {
+    id:7, name:"Notion AI", role:"知识管家 & 项目协调员", dept:"productivity",
+    skills:["笔记整理","知识库","项目管理","会议纪要","文档生成","数据库"],
+    cost:"免费 / $10月", rating:4.7, freeTier:true,
+    desc:"All-in-one工作空间，AI功能可自动整理笔记、生成会议纪要、撰写文档、填充数据库。一人公司的'第二大脑'，所有信息和知识统一管理。",
+    tasks:["整理碎片笔记为结构化知识库","自动生成会议纪要和行动项","撰写产品需求文档(PRD)","构建客户CRM数据库","创建项目看板和甘特图","撰写标准操作程序(SOP)"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"无限页面，7天历史"},{tier:"Plus", price:"$10/月", desc:"无限文件上传，30天历史"},{tier:"AI", price:"$10/月/人", desc:"AI功能附加"}],
+    link:"https://notion.so"
+  },
+  {
+    id:8, name:"ElevenLabs", role:"配音演员 & 语音工程师", dept:"video",
+    skills:["语音克隆","多语言配音","有声书","播客制作","广告配音","语音合成"],
+    cost:"免费 / $5月", rating:4.7, freeTier:true,
+    desc:"全球领先的AI语音合成平台，支持29种语言、1200+种声音。可克隆自己的声音，实现'一人配音团队'。视频、播客、广告配音从此不求人。",
+    tasks:["为产品视频配中文解说","克隆自己的声音制作播客","生成多语言产品Demo","为广告片配专业旁白","制作有声书和课程音频","创建品牌专属语音IP"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"10K字符/月，3种声音"},{tier:"Starter", price:"$5/月", desc:"30K字符/月，定制声音"},{tier:"Creator", price:"$22/月", desc:"100K字符/月，全功能"}],
+    link:"https://elevenlabs.io"
+  },
+  {
+    id:9, name:"Runway", role:"视频剪辑师 & 特效师", dept:"video",
+    skills:["AI视频生成","视频编辑","绿幕抠图","运动跟踪","图像转视频","视频增强"],
+    cost:"免费 / $15月", rating:4.6, freeTier:true,
+    desc:"AI视频生成和编辑工具，Gen-3模型可生成高质量短视频。支持视频编辑、绿幕抠图、图像转视频等功能。一人公司制作视频内容的强大工具。",
+    tasks:["生成产品宣传短视频","为视频添加AI特效","绿幕抠图替换背景","将图片转为动态视频","视频画质增强和修复","批量生成社交媒体视频"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"3个项目，125积分"},{tier:"Standard", price:"$15/月", desc:"无限项目，625积分"},{tier:"Pro", price:"$35/月", desc:"无限项目，2250积分"}],
+    link:"https://runwayml.com"
+  },
+  {
+    id:10, name:"Copy.ai", role:"营销文案专员 & 销售写手", dept:"marketing",
+    skills:["广告文案","销售邮件"," landing page","社交媒体文案","产品描述","SEO内容"],
+    cost:"免费 / $49月", rating:4.5, freeTier:true,
+    desc:"专为营销和销售团队设计的AI写作工具。提供90+种文案模板，从Facebook广告到LinkedIn帖子，从销售邮件到产品描述，一键生成高转化文案。",
+    tasks:["撰写Facebook/Google广告文案","生成高转化销售邮件序列","编写产品落地页文案","批量生成社交媒体帖子","撰写SEO优化博客文章","创作YouTube脚本"],
+    pricing:[{tier:"免费版", price:"$0/月, false,
+    tasks:["撰写社交媒体广告文案","自动生成产品描述","创建高转化邮件序列","生成博客文章大纲和正文","撰写SEO优化内容","创作Landing Page文案"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"2000字/月，1个用户"},{tier:"Pro", price:"$49/月", desc:"无限字数，90+模板"},{tier:"Team", price:"$249/月", desc:"5个用户，协作功能"}],
+    link:"https://copy.ai"
+  },
+  {
+    id:11, name:"Intercom Fin", role:"客服主管 & 智能接待", dept:"support",
+    skills:["智能客服","自动回复","工单管理","客户分析","多渠道集成","FAQ生成"],
+    cost:"$74/月起", rating:4.6, freeTier:false,
+    desc:"Intercom的AI客服机器人Fin，基于GPT-4构建，能理解客户问题并提供精准回答。自动处理80%常见问题，只有复杂问题才转人工。一人公司也能提供7x24小时客服。",
+    tasks:["自动回答客户常见问题","根据知识库生成精准回复","分析客户情绪并优先处理","收集客户反馈并分类","生成FAQ知识库","多渠道接入(网站/App/邮件/社交)"],
+    pricing:[{tier:"Starter", price:"$74/月", desc:"基础客服功能"},{tier:"Pro", price:"$394/月", desc:"高级自动化，A/B测试"},{tier:"Premium", price:"$919/月", desc:"全功能，专属支持"}],
+    link:"https://intercom.com"
+  },
+  {
+    id:12, name:"Grammarly", role:"文字编辑 & 校对专员", dept:"content",
+    skills:["语法检查","拼写纠正","风格优化","语气调整","抄袭检测","可读性评分"],
+    cost:"免费 / $12月", rating:4.6, freeTier:true,
+    desc:"全球最受欢迎的AI写作辅助工具，实时检查语法、拼写、标点错误。高级版还能调整语气风格、优化可读性、检测抄袭。一人公司对外输出的每一份文字都专业无瑕。",
+    tasks:["检查邮件和文档的语法错误","优化文案的语气和风格","提升文章可读性评分","检测内容原创性避免抄袭","调整正式/非正式语气","为英文内容提供本地化建议"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"基础语法和拼写检查"},{tier:"Premium", price:"$12/月", desc:"高级建议，语气调整，抄袭检测"},{tier:"Business", price:"$15/人/月", desc:"团队协作，风格指南"}],
+    link:"https://grammarly.com"
+  },
+  {
+    id:13, name:"QuickBooks", role:"财务主管 & 会计", dept:"finance",
+    skills:["记账","发票管理","税务报表","财务分析","预算追踪","工资发放"],
+    cost:"$18月起", rating:4.5, freeTier:false,
+    desc:"Intuit旗下的小企业财务管理软件，AI功能包括自动分类交易、智能发票生成、税务预测等。一人公司无需聘请会计，即可完成全部财务管理。",
+    tasks:["自动记录和分类银行交易","生成并发送专业发票","追踪应收账款和应付账款","生成税务报告和财务摘要","预测现金流和预算","自动计算和发放工资"],
+    pricing:[{tier:"Simple Start", price:"$18/月", desc:"基础记账和发票"},{tier:"Essentials", price:"$27/月", desc:"多用户，账单管理"},{tier:"Plus", price:"$42/月", desc:"库存跟踪，项目盈利分析"}],
+    link:"https://quickbooks.intuit.com"
+  },
+  {
+    id:14, name:"Stripe", role:"支付专员 & 收款管家", dept:"finance",
+    skills:["在线支付","订阅管理","发票","全球收款","反欺诈","数据分析"],
+    cost:"按交易额2.9%+$0.3", rating:4.9, freeTier:true,
+    desc:"全球开发者最喜爱的支付平台，Stripe让一人公司轻松接受全球135+种货币的在线支付。AI驱动的反欺诈系统保护每笔交易。",
+    tasks:["设置产品订阅和一次性付款","自动生成并发送发票","管理全球客户的多币种支付","监控交易欺诈风险","分析收入趋势和流失率","集成到网站和应用中"],
+    pricing:[{tier:"标准", price:"2.9%+$0.3/笔", desc:"在线支付"},{tier:"Billing", price:"0.5%", desc:"订阅管理附加费"},{tier:"Tax", price:"0.5%", desc:"自动计算税费"}],
+    link:"https://stripe.com"
+  },
+  {
+    id:15, name:"Jasper", role:"内容营销总监 & SEO专家", dept:"marketing",
+    skills:["SEO文章","内容营销","品牌语调","多语言内容","社媒策略","内容规划"],
+    cost:"$49月起", rating:4.4, freeTier:false,
+    desc:"Jasper是专为营销团队设计的AI写作平台，支持品牌语调定制、SEO优化、多语言内容生成。一人公司也能产出专业级营销内容。",
+    tasks:["撰写SEO优化的长篇博客","生成品牌语调一致的社媒内容","制定月度内容日历","批量创建产品描述","为多语言市场生成本地化内容","分析内容表现并优化策略"],
+    pricing:[{tier:"Creator", price:"$49/月", desc:"1个用户，无限字数"},{tier:"Teams", price:"$125/月", desc:"3个用户，协作功能"},{tier:"Business", price:"定制", desc:"API，SSO，专属支持"}],
+    link:"https://jasper.ai"
+  },
+  {
+    id:16, name:"Descript", role:"视频编辑师 & 音频工程师", dept:"video",
+    skills:["视频编辑","音频编辑","转录","字幕生成","多轨编辑","屏幕录制"],
+    cost:"免费 / $12月", rating:4.6, freeTier:true,
+    desc:"革命性的音视频编辑工具，通过编辑文字来编辑视频。AI自动转录、删除废话词、生成字幕。一人公司制作播客、教程、演示视频的最佳选择。",
+    tasks:["将录音自动转录为文字","通过编辑文字来剪辑视频","自动删除'嗯''啊'等废话词","生成精准的中英文字幕","录制屏幕和摄像头画面","多人远程协作录制播客"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"1小时转录/月，720p导出"},{tier:"Creator", price:"$12/月", desc:"10小时转录/月，4K导出"},{tier:"Pro", price:"$24/月", desc:"30小时转录/月，全功能"}],
+    link:"https://descript.com"
+  },
+  {
+    id:17, name:"Zapier", role:"自动化工程师 & 流程优化师", dept:"productivity",
+    skills:["工作流自动化","应用集成","触发器","数据同步","报告自动化","定时任务"],
+    cost:"免费 / $19月", rating:4.7, freeTier:true,
+    desc:"无代码自动化平台，连接7000+应用。Zapier让一人公司实现'AI自动办公'——新邮件自动创建任务、新订单自动发送通知、表单提交自动录入CRM。",
+    tasks:["新邮件自动创建待办任务","表单提交自动录入CRM","社交媒体定时自动发布","新订单自动发送Slack通知","数据自动同步到多个平台","周报数据自动汇总生成"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"100任务/月，5个Zap"},{tier:"Professional", price:"$19/月", desc:"2000任务/月，无限Zap"},{tier:"Team", price:"$49/月", desc:"50,000任务/月，协作"}],
+    link:"https://zapier.com"
+  },
+  {
+    id:18, name:"GitHub Copilot", role:"副工程师 & 代码助手", dept:"code",
+    skills:["代码补全","函数生成","注释生成","单元测试","代码解释","多语言支持"],
+    cost:"$10/月", rating:4.8, freeTier:true,
+    desc:"GitHub与OpenAI合作开发的AI编程助手，深度集成到IDE中。Copilot能根据上下文自动补全代码、生成函数、编写注释。全球数百万开发者每天使用。",
+    tasks:["根据注释自动生成代码实现","为函数生成单元测试用例","编写清晰的代码注释和文档","解释复杂代码段的逻辑","在IDE中实时提供代码建议","支持Python/JS/Go/Rust等50+语言"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"开源项目，学生教师"},{tier:"Individual", price:"$10/月", desc:"个人开发者"},{tier:"Business", price:"$19/人/月", desc:"团队协作，IP保护"}],
+    link:"https://github.com/features/copilot"
+  },
+  {
+    id:19, name:"Loom", role:"演示专员 & 沟通大使", dept:"video",
+    skills:["屏幕录制","视频消息","异步沟通","视频编辑","表情反应","分析追踪"],
+    cost:"免费 / $12.5月", rating:4.6, freeTier:true,
+    desc:"异步视频沟通工具，录制屏幕和摄像头分享视频消息。Loom让一人公司用视频代替冗长会议，客户沟通、产品演示、团队培训全部异步完成。",
+    tasks:["录制产品演示视频发给客户","用视频消息代替文字邮件","录制教程和操作指南","收集观看者的表情和时间轴反馈","追踪视频观看数据和转化率","创建标准化的客户沟通视频模板"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"25个视频，5分钟/条"},{tier:"Business", price:"$12.5/月", desc:"无限视频，录制时长"},{tier:"Enterprise", price:"定制", desc:"高级安全，SSO"}],
+    link:"https://loom.com"
+  },
+  {
+    id:20, name:"Calendly", role:"日程秘书 & 预约协调员", dept:"productivity",
+    skills:["日程管理","预约排期","会议链接","时区转换","团队调度","自动化提醒"],
+    cost:"免费 / $10月", rating:4.7, freeTier:true,
+    desc:"智能日程预约工具，让对方直接在你的空闲时间预约。Calendly自动处理时区转换、发送提醒、生成会议链接。一人公司对外沟通的效率利器。",
+    tasks:["让客户直接预约你的空闲时间","自动发送会议确认和提醒","处理跨时区预约的自动转换","设置不同类型会议的时长和缓冲","团队共享日程避免冲突","集成Zoom/Google Meet自动创建链接"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"1个事件类型，基础功能"},{tier:"Standard", price:"$10/月", desc:"无限事件类型，自定义"},{tier:"Teams", price:"$16/人/月", desc:"团队调度，报告"}],
+    link:"https://calendly.com"
+  },
+  {
+    id:21, name:"Buffer", role:"社媒运营经理 & 内容分发", dept:"marketing",
+    skills:["社媒排期","多平台发布","数据分析","内容策划","AI写作","团队协作"],
+    cost:"免费 / $6月", rating:4.5, freeTier:true,
+    desc:"社交媒体管理工具，支持多平台一键发布和排期。AI功能可自动生成帖子文案、推荐最佳发布时间。一人公司管理多个社媒账号的效率神器。",
+    tasks:["一键发布到多个社媒平台","AI自动生成帖子文案和标签","推荐最佳发布时间","追踪帖子表现和数据","创建内容日历并批量排期","回复评论和消息统一管理"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"3个社媒账号，10条排期"},{tier:"Essentials", price:"$6/月", desc:"无限排期，AI写作"},{tier:"Team", price:"$12/月", desc:"无限用户，协作"}],
+    link:"https://buffer.com"
+  },
+  {
+    id:22, name:"Harvey AI", role:"法务顾问 & 合同专家", dept:"legal",
+    skills:["合同审查","法律研究","合规检查","条款生成","风险评估","文档起草"],
+    cost:"定制", rating:4.5, freeTier:false,
+    desc:"专为法律团队设计的AI平台，由OpenAI投资。Harvey能审查合同、生成法律文档、进行法律研究。一人公司处理合同和法律事务时，相当于拥有专业法务团队。",
+    tasks:["自动审查合同条款和风险点","生成标准法律文档模板","进行法律案例研究和检索","检查合规性和监管要求","起草NDA/服务协议等合同","分析合同中的关键条款和义务"],
+    pricing:[{tier:"定制", price:"联系询价", desc:"按团队规模和需求定价"}],
+    link:"https://harvey.ai"
+  },
+  {
+    id:23, name:"DALL-E 3", role:"创意设计师 & 图像助理", dept:"design",
+    skills:["图像生成","风格转换","图像编辑","概念设计","插画","产品图"],
+    cost:"$20月(CGPT Plus)", rating:4.6, freeTier:true,
+    desc:"OpenAI的图像生成模型，集成在ChatGPT Plus中。DALL-E 3能理解复杂的中文描述，生成高质量图像。一人公司无需额外付费即可获得专业图像生成能力。",
+    tasks:["根据文字描述生成产品概念图","创建社交媒体视觉内容","设计品牌宣传素材","生成博客文章配图","创作艺术风格和插画","修改和扩展现有图像"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"必应图像创建器，有限额度"},{tier:"Plus", price:"$20/月", desc:"ChatGPT Plus包含DALL-E"},{tier:"API", price:"$0.04/图", desc:"按量付费"}],
+    link:"https://openai.com/dall-e-3"
+  },
+  {
+    id:24, name:"Replit", role:"全栈工程师 & 云开发环境", dept:"code",
+    skills:["云端IDE","一键部署","AI辅助编程","多语言支持","实时协作","数据库"],
+    cost:"免费 / $7月", rating:4.5, freeTier:true,
+    desc:"基于浏览器的云端IDE，支持50+编程语言。AI功能Ghostwriter提供代码补全和生成。一键部署到全球CDN。一人公司无需配置本地环境，随时随地开发。",
+    tasks:["在浏览器中编写和运行代码","一键部署Web应用到生产环境","AI辅助代码生成和补全","创建和管理数据库","与协作者实时共同编辑代码","快速原型验证和MVP构建"],
+    pricing:[{tier:"免费版", price:"$0/月", desc:"基础IDE，有限资源"},{tier:"Core", price:"$7/月", desc:"AI功能，更多资源"},{tier:"Teams", price:"$15/人/月", desc:"团队协作，私有部署"}],
+    link:"https://replit.com"
+  }
+];
+
+const deptLabels = {
+  content:"📄 内容", design:"🎨 设计", code:"💻 工程", marketing:"📢 营销",
+  support:"🎧 客服", research:"🔬 研究", video:"🎬 视频", legal:"⚖️ 法务",
+  finance:"💰 财务", productivity:"⚡ 效率"
+};
+const deptClasses = {
+  content:"dept-content", design:"dept-design", code:"dept-code", marketing:"dept-marketing",
+  support:"dept-support", research:"dept-research", video:"dept-video", legal:"dept-legal",
+  finance:"dept-finance", productivity:"dept-productivity"
+};
+
+let currentDept = 'all';
+let searchQuery = '';
+let currentView = 'cards';
+
+function init() {
+  const filterGroup = document.getElementById('filterGroup');
+  const depts = [...new Set(employees.map(e=>e.dept))];
+  depts.forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.dept = d;
+    btn.textContent = deptLabels[d];
+    btn.onclick = () => filterDept(d);
+    filterGroup.appendChild(btn);
+  });
+
+  document.getElementById('searchInput').addEventListener('input', e => {
+    searchQuery = e.target.value.toLowerCase().trim();
+    render();
+  });
+
+  render();
+  updateStats();
+}
+
+function getFiltered() {
+  return employees.filter(e => {
+    const matchDept = currentDept === 'all' || e.dept === currentDept;
+    const q = searchQuery;
+    const matchSearch = !q || e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q) || e.skills.some(s=>s.toLowerCase().includes(q));
+    return matchDept && matchSearch;
+  });
+}
+
+function render() {
+  const filtered = getFiltered();
+  const noResults = document.getElementById('noResults');
+  const grid = document.getElementById('grid');
+  const tableView = document.getElementById('tableView');
+
+  if (filtered.length === 0) {
+    noResults.style.display = 'block';
+    grid.style.display = 'none';
+    tableView.style.display = 'none';
+    return;
+  }
+  noResults.style.display = 'none';
+
+  if (currentView === 'cards') {
+    grid.style.display = 'grid';
+    tableView.style.display = 'none';
+    grid.innerHTML = filtered.map(e => `
+      <div class="employee-card" onclick="openModal(${e.id})">
+        <div class="dept-badge ${deptClasses[e.dept]}">${deptLabels[e.dept]}</div>
+        <div class="name">${e.name}</div>
+        <div class="role">${e.role}</div>
+        <div class="skills">${e.skills.slice(0,4).map(s=>`<span class="skill-tag">${s}</span>`).join('')}</div>
+        <div class="meta">
+          <span class="cost">${e.cost}</span>
+          <span class="rating">★ ${e.rating}</span>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    grid.style.display = 'none';
+    tableView.style.display = 'block';
+    tableView.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>部门</th><th>AI员工</th><th>角色</th><th>核心技能</th><th>费用</th><th>评分</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.map(e => `
+            <tr onclick="openModal(${e.id})" style="cursor:pointer">
+              <td><span class="td-dept ${deptClasses[e.dept]}">${deptLabels[e.dept]}</span></td>
+              <td><strong>${e.name}</strong></td>
+              <td>${e.role}</td>
+              <td>${e.skills.slice(0,3).join('、')}</td>
+              <td class="td-cost">${e.cost}</td>
+              <td class="td-rating">★ ${e.rating}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+}
+
+function updateStats() {
+  const total = employees.length;
+  const depts = new Set(employees.map(e=>e.dept)).size;
+  const free = employees.filter(e=>e.freeTier).length;
+  const avgRating = (employees.reduce((s,e)=>s+e.rating,0)/total).toFixed(1);
+  const topRated = employees.filter(e=>e.rating>=4.8).length;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDepts').textContent = depts;
+  document.getElementById('statFree').textContent = free;
+  document.getElementById('statAvg').textContent = avgRating;
+  document.getElementById('statTop').textContent = topRated;
+}
+
+function filterDept(dept) {
+  currentDept = dept;
+  // Reset search when changing dept
+  searchQuery = '';
+  document.getElementById('searchInput').value = '';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.dept === dept));
+  render();
+}
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  render();
+}
+
+function openModal(id) {
+  const e = employees.find(x=>x.id===id);
+  if (!e) return;
+  const html = `
+    <div class="modal-header">
+      <div class="dept-badge-modal ${deptClasses[e.dept]}">${deptLabels[e.dept]}</div>
+      <h2>${e.name}</h2>
+      <div class="role">${e.role} · ★ ${e.rating}</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3>📝 员工简介</h3>
+        <p>${e.desc}</p>
+      </div>
+      <div class="modal-section">
+        <h3>🎯 核心技能</h3>
+        <div class="skills-modal">${e.skills.map(s=>`<span class="skill-tag-modal">${s}</span>`).join('')}</div>
+      </div>
+      <div class="modal-section">
+        <h3>✅ 典型工作任务</h3>
+        <ul class="tasks-list">${e.tasks.map(t=>`<li>${t}</li>`).join('')}</ul>
+      </div>
+      <div class="modal-section">
+        <h3>💳 薪酬方案</h3>
+        ${e.pricing.map(p=>`
+          <div class="pricing-row">
+            <span><strong>${p.tier}</strong> — ${p.desc}</span>
+            <span class="price">${p.price}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a href="${e.link}" target="_blank" class="btn-primary">🔗 访问官网</a>
+      <a href="#" class="btn-secondary" onclick="closeModal();return false;">关闭</a>
+    </div>
+  `;
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+init();
+</script>
+</body>
+</html>
